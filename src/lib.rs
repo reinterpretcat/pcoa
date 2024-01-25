@@ -12,7 +12,7 @@ where
     // perform eigen decomposition
     let (eigvals, eigvecs) = symmetric_eigen_decomposition(centered_matrix);
 
-    // get coordinates
+    // get principal coordinates from eigen vecs/vals
     get_principal_coordinates(eigvals, eigvecs, number_of_dimensions)
 }
 
@@ -35,7 +35,7 @@ where
 }
 
 /// Calculates eigen decomposition for symmetric matrix.
-/// Returns eivenvalues and eigenvectors, sorted in descending order.
+/// Returns eigenvalues and eigenvectors, sorted in descending order.
 fn symmetric_eigen_decomposition<S>(
     matrix: DMatrix<S>,
 ) -> (OVector<S::RealField, Dyn>, OMatrix<S, Dyn, Dyn>)
@@ -248,6 +248,7 @@ mod tests {
                 5., 9., 3., 0., //
             ],
         );
+        // TODO these coordinates seems not retain always original distances, need to see what is wrong
         let expected_coords: DMatrix<f64> = DMatrix::from_column_slice(
             4,
             2,
