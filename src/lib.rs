@@ -179,10 +179,8 @@ mod tests {
     #[test]
     fn can_get_principal_coordinates() {
         let number_of_dimensions = 2;
-        let eigvals = OVector::<f64, Dyn>::from_iterator(
-            4,
-            [42.1983_f64, 15.1124, 0.0000, -6.0607].into_iter(),
-        );
+        let eigvals =
+            OVector::<f64, Dyn>::from_iterator(4, [42.1983_f64, 15.1124, 0.0000, -6.0607]);
         let eigvecs = DMatrix::from_column_slice(
             4,
             4,
