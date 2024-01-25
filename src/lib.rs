@@ -16,19 +16,6 @@ where
     get_principal_coordinates(eigvals, eigvecs, number_of_dimensions)
 }
 
-fn mapv_inplace<S, F>(matrix: &mut DMatrix<S>, mapv_fn: F)
-where
-    S: Scalar + Field + Default + Copy,
-    F: Fn(S, usize, usize) -> S,
-{
-    for row in 0..matrix.nrows() {
-        for col in 0..matrix.ncols() {
-            let val = matrix[(row, col)];
-            matrix[(row, col)] = mapv_fn(val, row, col);
-        }
-    }
-}
-
 fn center_distance_matrix<S>(mut matrix: DMatrix<S>) -> DMatrix<S>
 where
     S: Scalar + Field + SupersetOf<f64> + Default + Copy,
@@ -118,6 +105,19 @@ where
     });
 
     Some(eigvecs)
+}
+
+fn mapv_inplace<S, F>(matrix: &mut DMatrix<S>, mapv_fn: F)
+where
+    S: Scalar + Field + Default + Copy,
+    F: Fn(S, usize, usize) -> S,
+{
+    for row in 0..matrix.nrows() {
+        for col in 0..matrix.ncols() {
+            let val = matrix[(row, col)];
+            matrix[(row, col)] = mapv_fn(val, row, col);
+        }
+    }
 }
 
 #[cfg(test)]
