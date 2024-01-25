@@ -232,5 +232,35 @@ where
 
 #[test]
 fn can_apply_pcoa() {
-    todo!()
+    let number_of_dimensions = 2;
+    let matrix: DMatrix<f64> = DMatrix::from_column_slice(
+        4,
+        4,
+        &[
+            0., 7., 5., 5., //
+            7., 0., 4., 9., //
+            5., 4., 0., 3., //
+            5., 9., 3., 0., //
+        ],
+    );
+    let expected_coords: DMatrix<f64> = DMatrix::from_column_slice(
+        4,
+        2,
+        &[
+            1.3597, -2.9726, //
+            -5.3514, 0.1067, //
+            3.248, 1.9437, //
+            -1.0784, 1.5769, //
+        ],
+    );
+
+    let coords = apply_pcoa(matrix, number_of_dimensions).expect("cannot apply PCoA");
+
+    let round_to = |v: &f64| round(*v, 4);
+    let coords = coords.into_iter().map(round_to).collect::<Vec<_>>();
+    let expected_coords = expected_coords
+        .into_iter()
+        .map(round_to)
+        .collect::<Vec<_>>();
+    assert_eq!(coords, expected_coords);
 }
