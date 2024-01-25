@@ -1,5 +1,6 @@
 [package]
 name = "pcoa"
+description = "This crate provides a way to apply Principal Coordinate Analysis on a distance (dissimilarity) matrix."
 version = "0.1.0"
 authors = ["Ilya Builuk <ilya.builuk@gmail.com>"]
 license = "Apache-2.0"
