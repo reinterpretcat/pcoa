@@ -6,10 +6,8 @@ where
     S: Scalar + Field + Default + Copy,
     F: Fn(S, usize, usize) -> S,
 {
-    let n = matrix.nrows();
-
-    for row in 0..n {
-        for col in 0..n {
+    for row in 0..matrix.nrows() {
+        for col in 0..matrix.ncols() {
             let val = matrix[(row, col)];
             matrix[(row, col)] = mapv_fn(val, row, col);
         }
@@ -91,21 +89,22 @@ where
 {
     let decomposition = matrix.symmetric_eigen();
 
-    let mut eigenvals = decomposition.eigenvalues;
-    let mut eigenvecs = decomposition.eigenvectors;
+    let mut eigvals = decomposition.eigenvalues;
+    let mut eigvecs = decomposition.eigenvectors;
 
     // NOTE: sort eigenvalues and eigenvectors in descending order
-    // TODO: this is simple, but quite inefficient way
-    for _ in 0..eigenvals.len() {
-        for j in 0..eigenvals.len() - 1 {
-            if eigenvals[j] < eigenvals[j + 1] {
-                eigenvals.swap((j, 0), (j + 1, 0));
-                eigenvecs.swap_rows(j, j + 1);
+    // TODO: this is simple buble sort, do it in a nicer/faster way
+    let n = eigvals.len();
+    for i in 0..n {
+        for j in 0..(n - i - 1) {
+            if eigvals[j] < eigvals[j + 1] {
+                eigvals.swap((j, 0), (j + 1, 0));
+                eigvecs.swap_rows(j, j + 1);
             }
         }
     }
 
-    (eigenvals, eigenvecs)
+    (eigvals, eigvecs)
 }
 
 #[test]
@@ -128,16 +127,110 @@ fn can_get_symmetric_eigen_decomposition() {
         -0.2238, 0.4698, -0.8012, 0.2955,
     ];
 
-    let (eigenvalues, eigenvectors) = symmetric_eigen_decomposition(matrix);
+    let (eigvals, eigvecs) = symmetric_eigen_decomposition(matrix);
 
     let round_to = |v: &f64| round(*v, 4);
-    let eigenvalues = eigenvalues.into_iter().map(round_to).collect::<Vec<_>>();
-    let eigenvectors = eigenvectors.into_iter().map(round_to).collect::<Vec<_>>();
-    assert_eq!(eigenvalues, expected_vals);
-    assert_eq!(eigenvectors, expected_vecs);
+    let eigvals = eigvals.into_iter().map(round_to).collect::<Vec<_>>();
+    let eigvecs = eigvecs.into_iter().map(round_to).collect::<Vec<_>>();
+    assert_eq!(eigvals, expected_vals);
+    assert_eq!(eigvecs, expected_vecs);
 }
 
 fn round(x: f64, decimals: u32) -> f64 {
     let y = 10i32.pow(decimals) as f64;
     (x * y).round() / y
+}
+
+fn get_principal_coordinates<S>(
+    mut eigvals: OVector<S::RealField, Dyn>,
+    mut eigvecs: OMatrix<S, Dyn, Dyn>,
+    number_of_dimensions: usize,
+) -> Option<DMatrix<S>>
+where
+    S: Scalar + Field + SupersetOf<f64> + Default + Copy + ComplexField,
+{
+    // TODO assert than num_dim is less or equal matrix dim
+
+    let n = eigvals.len();
+
+    // return the coordinates that have a negative eigenvalue as 0
+    // so reset negative values in eigenvalues and eigenvectors to zero
+    let zero = S::from_subset(&0.);
+    let zero_real = zero.real();
+    let position = eigvals.iter().rposition(|v| v > &zero_real)?;
+
+    if position < n - 1 {
+        let neg_position = position + 1;
+        eigvals.iter_mut().skip(neg_position).for_each(|v| {
+            *v = zero.real();
+        });
+        eigvecs
+            .rows_mut(neg_position, n - neg_position)
+            .iter_mut()
+            .for_each(|v| {
+                *v = zero;
+            });
+    }
+
+    // keep requested dimensionality only
+    let mut eigvals = eigvals.remove_rows(number_of_dimensions, n - number_of_dimensions);
+    let mut eigvecs = eigvecs.remove_rows(number_of_dimensions, n - number_of_dimensions);
+
+    eigvals.iter_mut().for_each(|v| {
+        *v = v.clone().sqrt();
+    });
+    mapv_inplace(&mut eigvecs, |v, row, _| {
+        v * S::from_real(eigvals[(row, 0)].clone())
+    });
+
+    Some(eigvecs)
+}
+
+#[test]
+fn can_get_principal_coordinates() {
+    let number_of_dimensions = 2;
+    let eigvals =
+        OVector::<f64, Dyn>::from_iterator(4, [42.1983_f64, 15.1124, 0.0000, -6.0607].into_iter());
+    let eigvecs = DMatrix::from_column_slice(
+        4,
+        4,
+        &[
+            -0.2093, 0.8237, 0.5000, -0.1660, //
+            0.7647, -0.0274, 0.5000, 0.4056, //
+            0.05193, -0.4402, 0.5000, -0.7434, //
+            -0.6073, -0.3561, 0.5000, 0.5044, //
+        ],
+    );
+    let expected_coords = vec![
+        -1.3596, 3.2021, //
+        4.9675, -0.1065, //
+        0.3373, -1.7113, //
+        -3.9450, -1.3843, //
+    ];
+
+    let coords = get_principal_coordinates(eigvals, eigvecs, number_of_dimensions).expect("");
+
+    let round_to = |v: &f64| round(*v, 4);
+    let coords = coords.into_iter().map(round_to).collect::<Vec<_>>();
+
+    assert_eq!(coords, expected_coords);
+}
+
+pub fn apply_pcoa<S>(distance_matrix: DMatrix<S>, number_of_dimensions: usize) -> Option<DMatrix<S>>
+where
+    S: Scalar + Field + SupersetOf<f64> + Default + Copy + ComplexField,
+{
+    // center distance matrix, a requirement for PCoA here
+    let centered_matrix = center_distance_matrix(distance_matrix);
+
+    // perform eigen decomposition
+    let (eigvals, eigvecs) = symmetric_eigen_decomposition(centered_matrix);
+
+    // get coordinates
+    get_principal_coordinates(eigvals, eigvecs, number_of_dimensions)
+}
+
+#[test]
+fn can_apply_pcoa() {
+    todo!()
 }
