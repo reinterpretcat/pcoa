@@ -45,7 +45,7 @@ where
     let decomposition = matrix.symmetric_eigen();
 
     let mut eigvals = decomposition.eigenvalues;
-    let mut eigvecs = decomposition.eigenvectors;
+    let mut eigvecs = decomposition.eigenvectors.transpose();
 
     // NOTE: sort eigenvalues and eigenvectors in descending order
     // TODO: this is simple buble sort, do it in a nicer/faster way
@@ -220,10 +220,10 @@ mod tests {
         );
         let expected_vals = vec![16.9185, -1.8377, -5.7136, -9.3672];
         let expected_vecs = vec![
-            0.5039, 0.5220, 0.3775, 0.5754, //
-            -0.2494, -0.5983, -0.0004, 0.7614, //
-            -0.7961, 0.3858, 0.4643, 0.0426, //
-            -0.2238, 0.4698, -0.8012, 0.2955,
+            0.5039, -0.2238, -0.7961, -0.2494, //
+            0.5754, 0.2955, 0.0426, 0.7614, //
+            0.3775, -0.8012, 0.4643, -0.0004, //
+            0.522, 0.4698, 0.3858, -0.5983, //
         ];
 
         let (eigvals, eigvecs) = symmetric_eigen_decomposition(matrix);
@@ -248,15 +248,14 @@ mod tests {
                 5., 9., 3., 0., //
             ],
         );
-        // TODO these coordinates seems not retain always original distances, need to see what is wrong
         let expected_coords: DMatrix<f64> = DMatrix::from_column_slice(
             4,
             2,
             &[
-                1.3597, -2.9726, //
-                -5.3514, 0.1067, //
-                3.248, 1.9437, //
-                -1.0784, 1.5769, //
+                1.3597, -3.2025, //
+                -4.9672, 0.1067, //
+                -0.3374, 1.7113, //
+                3.9449, 1.3845, //
             ],
         );
 
