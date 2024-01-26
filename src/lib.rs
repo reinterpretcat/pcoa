@@ -1,7 +1,118 @@
+//! This crate provides functionality to apply Principal Coordinate Analysis.
+//!
+//! # Quick Start
+//!
+//! A very brief introduction into Principal Coordinates Analysis.
+//!
+//! ## What is Principal Coordinates Analysis (PCoA)
+//! PCoA is a statistical method that turns distance data between items into a map-like visualization. It helps to reveal
+//! which items are close to each other and which ones are far away. This visualization can also assist in identifying
+//! groups or clusters among the items.
+//!
+//! ## Principal Coordinate Analysis and Multidimensional Scaling
+//! Multidimensional Scaling is a family of statistical methods that focus on creating mappings of items based on distance.
+//! Principal Coordinate Analysis is one type of Multidimensional Scaling which specifically works with numerical distances,
+//! in which there is no measurement error — you have one precise distance measure for each pair of items.
+//!
+//! ## Principal Coordinate Analysis nad Principal Component Analysis
+//! PCoA and Principal Component Analysis (PCA) are often confused due to their shared initials and both involving
+//! dimensionality reduction. However, they differ in their primary objectives:
+//! - PCA concentrates on shared variance, aiming to summarize multiple variables into the fewest components while maximizing
+//!   the explanation of variance in each component.
+//! - PCoA emphasizes distances and strives to identify dimensions that capture the greatest distances between items.
+//!
+//!
+//! For more information, please read [an excellent article](https://towardsdatascience.com/principal-coordinates-analysis-cc9a572ce6c).
+//!
+//! ## Implementation
+//!
+//! This crate's implementation is based on [scikit-bio](https://scikit.bio/) implementation, however, most of performance
+//! optimizations are not applied here.
+//!
+//! # Usage Example
+//!
+//! This section explains how to use the library.
+//!
+//! ## Brief
+//!
+//! Let's assume we have three points A, B, C with the respective distance matrix of 3x3 shape:
+//!
+//! |    |    |    |
+//! |----|----|----|
+//! |  0 | AB | AC |
+//! | BA |  0 | BC |
+//! | CA | CB |  0 |
+//!
+//! To call the `PCoA` function, you need to construct `DMatrix` instance from the distance matrix.
+//! The following pseudo code demonstrates expected layout of one dimensional array which will be used later to the function:
+//!
+//! ```text
+//! DMatrix::from_column_slice(3, 3, [0,AB,AC,BA,0,BC,CA,CB,0])
+//! ```
+//! `DMatrix` is a type from `nalgebra` crate, other types from this crate can be imported with `pcoa::nalgebra`.
+//!
+//! __Please note__ that current implementation assumes a symmetric matrix, so the following equalities are expected to be
+//! hold: `AB=BA`, `AC=CA` and `BC=CB`.
+//!
+//! As a second argument, you need to pass dimensionality of principal coordinates. Typically, it equals to 2.
+//!
+//! As result, another `DMatrix` instance will be returned and it represents principal coordinates which can be used to
+//! plot original items on a map.
+//!
+//! ## Code example
+//!
+//! A minimalistic example:
+//!
+//! ```
+//! use pcoa::apply_pcoa;
+//! use pcoa::nalgebra::DMatrix;
+//!
+//! // here, we have interest in only two coordinates (e.g. x and y)
+//! let number_of_dimensions = 2;
+//! // create a distance matrix from raw data. Matrix is expected to be symmetric with 3x3 shape
+//! let distance_matrix = DMatrix::from_column_slice(3, 3, &[0_f64, 250., 450., 250., 0., 300., 450., 300., 0.]);
+//! // apply pcoa
+//! let coords_matrix = apply_pcoa(distance_matrix, number_of_dimensions).expect("cannot apply PCoA");
+//!
+//! // NOTE: transpose matrix to get first column for x coordinates and the second - for y coordinates.
+//! let coords_matrix = coords_matrix.transpose();
+//! let xs: Vec<_> = coords_matrix.column(0).iter().copied().collect();
+//! let ys: Vec<_> = coords_matrix.column(1).iter().copied().collect();
+//! // these are our coordinates
+//! assert_eq!((xs[0].round(), ys[0].round()), (213., -60.));
+//! assert_eq!((xs[1].round(), ys[1].round()), (24., 104.));
+//! assert_eq!((xs[2].round(), ys[2].round()), (-237., -44.));
+//! ```
+//!
+//! Here, we have the following distance matrix as input:
+//!
+//! |     |     |     |
+//! |-----|-----|-----|
+//! |  0  | 250 | 450 |
+//! | 250 |  0  | 300 |
+//! | 450 | 300 |  0  |
+//!
+//! As result, we get the following coordinates (rounded in test and here):
+//!
+//! ```text
+//! A: (213,  -60)
+//! B: ( 24,  104)
+//! C: (-237, -44)
+//! ```
+//!
+//! These coordinates retain original distances between points (with some precision loss) and can be used to visualize
+//! original data in 2D space.
+//!
+
+// Reexport nalgebra to allow easy manipulation with its types
+pub use nalgebra;
+
 use nalgebra::{DMatrix, Dyn, OMatrix, OVector, Scalar};
 use simba::scalar::{ComplexField, Field, SupersetOf};
 
 /// Applies Principal Coordinates Analysis on given distance (dissimilarity) matrix.
+/// Returns principal coordinates as a matrix which has the following orientation: number of rows is equal to
+/// `number_of_dimensions` argument and number of columns is equal to the `distance_matrix` dimensionality (e.g. amount of data points).
 pub fn apply_pcoa<S>(distance_matrix: DMatrix<S>, number_of_dimensions: usize) -> Option<DMatrix<S>>
 where
     S: Scalar + Field + SupersetOf<f64> + Default + Copy + ComplexField,
@@ -70,9 +181,11 @@ fn get_principal_coordinates<S>(
 where
     S: Scalar + Field + SupersetOf<f64> + Default + Copy + ComplexField,
 {
-    // TODO assert than num_dim is less or equal matrix dim
-
     let n = eigvals.len();
+
+    if number_of_dimensions > n {
+        return None;
+    }
 
     // return the coordinates that have a negative eigenvalue as 0
     // so reset negative values in eigenvalues and eigenvectors to zero
